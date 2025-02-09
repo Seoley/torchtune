@@ -227,13 +227,15 @@ def lora_qwen2(
         )
     else:
         mlp = qwen2_mlp(dim=embed_dim, hidden_dim=intermediate_dim)
-
+    print("self_attn", self_attn)
+    print("mlp", mlp)
     layer = TransformerSelfAttentionLayer(
         attn=self_attn,
         mlp=mlp,
         sa_norm=RMSNorm(dim=embed_dim, eps=norm_eps),
         mlp_norm=RMSNorm(dim=embed_dim, eps=norm_eps),
     )
+    print("layer", layer)
 
     tok_embeddings = nn.Embedding(vocab_size, embed_dim)
 
@@ -438,6 +440,7 @@ def lora_qwen2_mlp(
         dropout=lora_dropout,
         quantize_base=quantize_base,
     )
+
     return FeedForward(
         gate_proj=gate_proj,
         down_proj=down_proj,

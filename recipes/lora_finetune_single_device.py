@@ -247,6 +247,7 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
         Setup the recipe state. This includes recipe state (if resume_from_checkpoint is True),
         model, tokenizer, loss, optimizer, learning rate scheduler, sampler, and dataloader.
         """
+
         self._metric_logger = config.instantiate(cfg.metric_logger)
 
         # log config with parameter override
@@ -257,7 +258,9 @@ class LoRAFinetuneRecipeSingleDevice(FTRecipeInterface):
             raise ValueError(
                 "NPU does not support model compilation. Please set `compile: False` in the config."
             )
+        print("checkpointer", cfg.checkpointer)
         checkpoint_dict = self.load_checkpoint(cfg_checkpointer=cfg.checkpointer)
+        print("checkpoint_dict",checkpoint_dict)
 
         # hack to toggle to the low cpu ram version of the reparametrize_as_dtype
         # hook based on the config.
