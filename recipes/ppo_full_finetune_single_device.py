@@ -255,6 +255,18 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
             * (self.batch_size // self._ppo_batch_size)
         )
 
+        self._steps_per_epoch = (
+            len(self._dataloader) // self._gradient_accumulation_steps
+        )
+        self.global_step = self._epochs_run * self._steps_per_epoch
+
+        # Setup lr scheduler
+        self._lr_scheduler = self._setup_lr_scheduler(
+            cfg_lr_scheduler=cfg.get("lr_scheduler", None),
+            num_training_steps=self._total_epochs * self._steps_per_epoch,
+            last_epoch=self.global_step - 1,
+        )
+
         # Set up profiler, returns DummyProfiler (nullcontext object with no-op `step` method)
         # if cfg is missing profiler key or if `cfg.profiler.enabled = False`
         self._profiler = self._setup_profiler(cfg.get(PROFILER_KEY, None))
@@ -325,6 +337,54 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
             self.profiler_active_steps = profiler_cfg["active_steps"]
 
         return profiler
+
+    def _setup_lr_scheduler(
+        self,
+        cfg_lr_scheduler: Optional[DictConfig],
+        num_training_steps: int,
+        last_epoch: int,
+    ) -> Optional[Optimizer]:
+        """
+        Set up the learning rate scheduler based on the provided configuration.
+        It handles both standard optimization and optimizer-in-backward cases, and supports
+        schedulers from both torchtune.modules and torch.optim.
+
+        Args:
+            cfg_lr_scheduler (Optional[DictConfig]): The learning rate scheduler configuration.
+            num_training_steps (int): The total number of training steps.
+            last_epoch (int): The index of the last epoch.
+
+        Returns:
+            lr_scheduler (Optional[Optimizer]): The learning rate scheduler.
+        """
+        if cfg_lr_scheduler is None:
+            log.info(
+                "No learning rate scheduler configured. Using constant learning rate."
+            )
+            return None
+
+        if self._optimizer_in_bwd:
+            # Use the first optimizer from the wrapper to represent the learning rate
+            optimizer = next(iter(self._optim_ckpt_wrapper.optim_map.values()))
+        else:
+            # Standard case: use the single optimizer
+            optimizer = self._optimizer
+
+        # Instantiate the learning rate scheduler
+        lr_scheduler = config.instantiate(
+            cfg_lr_scheduler,
+            optimizer,
+            num_training_steps=num_training_steps,
+            last_epoch=last_epoch,
+        )
+
+        if self._optimizer_in_bwd:
+            # Modify the scheduler for optimizer_in_bwd case
+            self._optim_ckpt_wrapper.set_lr_scheduler(lr_scheduler)
+
+        log.info("Learning rate scheduler is initialized.")
+        return lr_scheduler
+
 
     def _setup_training_hyperparameters(self, cfg) -> None:
         """
@@ -1006,8 +1066,12 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         if not self._optimizer_in_bwd:
                             self._optimizer.step()
                             self._optimizer.zero_grad(set_to_none=True)
-
+                        
+                        # Need to fix `lr_scheduler.step()` before `optimizer.step()` warning
+                        if self._lr_scheduler is not None:
+                            self._lr_scheduler.step()
                         self.global_step += 1
+
                 ppo_time = time.perf_counter() - t0_ppo
 
                 # step 5. profit
