@@ -1070,7 +1070,7 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                 current_lr = get_lr(
                     (
-                        self._lr_scheduler
+                        self._optimizer
                         if not self._optimizer_in_bwd
                         else self._optim_ckpt_wrapper
                     ),
