@@ -1067,6 +1067,16 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
 
                 ppo_time = time.perf_counter() - t0_ppo
 
+                current_lr = get_lr(
+                    (
+                        self._lr_scheduler
+                        if not self._optimizer_in_bwd
+                        else self._optim_ckpt_wrapper
+                    ),
+                )
+
+                log.info(current_lr)
+                
                 # step 5. profit
                 self._steps_run += 1
                 if self._steps_run % self._log_every_n_steps == 0:
