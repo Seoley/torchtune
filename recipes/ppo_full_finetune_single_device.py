@@ -25,6 +25,7 @@ from torchtune.modules import local_kv_cache
 from torchtune.recipe_interfaces import FTRecipeInterface
 from torchtune.rlhf import PPOStats, Trajectory
 from torchtune.training import disable_dropout, DummyProfiler, PROFILER_KEY
+from torchtune.training.lr_schedulers import get_lr
 from tqdm import tqdm
 
 log = utils.get_logger("DEBUG")
@@ -1075,8 +1076,6 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
                     ),
                 )
 
-                log.info(current_lr)
-                
                 # step 5. profit
                 self._steps_run += 1
                 if self._steps_run % self._log_every_n_steps == 0:
@@ -1087,6 +1086,7 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
                         kl_rewards,
                         num_tokens / traj_time,
                         num_tokens / ppo_time,
+                        current_lr,
                     )
                 self.cleanup_after_step(
                     trajectory, ppo_stats, advantages, returns, kl, kl_rewards
@@ -1213,6 +1213,7 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
         kl_rewards: torch.Tensor,
         tokens_per_second_trajectory: torch.Tensor,
         tokens_per_second_loss: torch.Tensor,
+        lr: float
     ) -> None:
         """
         Log metrics and statistics for the current step to the metric logger.
@@ -1223,6 +1224,7 @@ class PPOFullFinetuneRecipeSingleDevice(FTRecipeInterface):
             "rlhf_reward": trajectory.scores.mean() + kl_rewards.sum(1).mean(),
             "kl": kl.sum(1).mean(),
             "kl_reward": kl_rewards.sum(1).mean(),
+            "lr": lr,
             "loss": ppo_stats.loss.mean(),
             "policy_loss": ppo_stats.policy_loss.mean(),
             "value_loss": ppo_stats.value_loss.mean(),
