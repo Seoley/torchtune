@@ -140,6 +140,10 @@ log_peak_memory_stats: True
 enable_activation_checkpointing: True # True reduces memory
 enable_kv_cache: True
 
+lr_scheduler:
+  _component_: torchtune.training.lr_schedulers.get_cosine_schedule_with_warmup
+  num_warmup_steps: 100
+
 # Reduced precision
 dtype: bf16
 

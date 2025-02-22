@@ -52,7 +52,7 @@ epochs: 1
 optimizer:
   _component_: torch.optim.AdamW
   fused: True
-  lr: 2e-5
+  lr: 2e-05
 
 loss:
   _component_: torchtune.modules.loss.CEWithChunkedOutputLoss
@@ -80,6 +80,10 @@ metric_logger:
 log_every_n_steps: 1
 log_peak_memory_stats: True
 
+
+lr_scheduler:
+  _component_: torchtune.training.lr_schedulers.get_cosine_schedule_with_warmup
+  num_warmup_steps: 100
 
 # Profiler (disabled)
 profiler:
